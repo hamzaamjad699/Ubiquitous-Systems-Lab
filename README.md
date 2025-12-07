@@ -1,24 +1,22 @@
-# CardioFusion – ECG + PPG Heart Rate Comparison
-A real-time ECG + PPG fusion system using **ESP32 + AD8232 ECG sensor + Bangle.js smartwatch**.
+# CardioFusion – Real-time ECG + PPG Heart Rate Comparison
 
-## 🔹 Team Members
-- **Hamza Amjad** – Hardware setup, AD8232 integration, Bangle.js BLE receiver
-- **Muhammad Waleed Amjad** – ESP32 firmware, BLE service design, ADC processing
-- **Osama Yousaf** – Data visualization, UI design, ECG graph rendering, system integration
+A system combining **ECG from AD8232 + ESP32** with **PPG heart rate from Bangle.js** to compare accuracy and visualize signals in real time.
 
 ---
 
-## 🔹 Project Description
-The system collects:
-- **ECG** from AD8232 via ESP32  
-- **PPG-based BPM** from Bangle.js HR sensor  
-
-The Bangle.js device:
-1. Receives ECG over Bluetooth  
-2. Reads internal PPG BPM  
-3. Displays live ECG waveform  
-4. Relays a 2-byte packet: `[ECG, BPM]`
+## Group Members
+- **Hamza Amjad** – Hardware integration, Bangle.js BLE receiver, ECG visualization  
+- **Muhammad Waleed Amjad** – ESP32 firmware, BLE service design, ADC processing  
+- **Osama Yousaf** – Data visualization logic, UI design, documentation  
 
 ---
 
-## 🔹 Repository Structure
+## System Overview
+1. **AD8232** generates analog ECG waveform.  
+2. **ESP32** reads signal → scales to 8-bit → transmits via BLE notifications.  
+3. **Bangle.js** receives ECG data and simultaneously reads PPG BPM.  
+4. Watch displays ECG waveform + BPM and relays both as a combined telemetry packet.
+
+---
+
+## Repository Structure
