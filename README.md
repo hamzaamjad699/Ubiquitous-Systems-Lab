@@ -10,9 +10,9 @@ This repository contains:
 ---
 
 ## Team
-- **Hamza Amjad** — Hardware integration, Bangle.js BLE receiver, ECG visualization  
-- **Muhammad Waleed Amjad** — ESP32 firmware, BLE service design, ADC processing  
-- **Osama Yousaf** — Data visualization, UI and documentation
+- **Hamza Amjad** — Hardware integration, Bangle.js BLE receiver, ECG visualization.  
+- **Muhammad Waleed Amjad** — ESP32 firmware, BLE service design, ADC processing.  
+- **Osama Yousaf** — Bangle.js application: BLE scan/connect/subscribe workflow, real-time ECG plotter optimized for the Bangle display, PPG (HRM) listener, and implementation of the 2-byte relay service `[ECG, BPM]`.
 
 ---
 
