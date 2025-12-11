@@ -3,61 +3,98 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
-#define SENSOR_PIN 35
-#define SDN_PIN    33
+// ========================================
+// Configuration
+// ========================================
+constexpr int SENSOR_PIN = 35;
+constexpr int SDN_PIN    = 33;
+constexpr char* DEVICE_NAME = "ESP32_ECG_Custom";
 
-#define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
-#define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+constexpr char* SERVICE_UUID        = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+constexpr char* CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
 
-BLEServer* pServer = NULL;
-BLECharacteristic* pCharacteristic = NULL;
-bool deviceConnected = false;
+constexpr int SAMPLE_DELAY_MS = 40;
 
-class MyServerCallbacks: public BLEServerCallbacks {
-  void onConnect(BLEServer* pServer) {
-    deviceConnected = true;
+// ========================================
+// ECG BLE Server Class
+// ========================================
+class ECGServer {
+private:
+  BLEServer* server;
+  BLECharacteristic* characteristic;
+  bool deviceConnected;
+
+public:
+  ECGServer() : server(nullptr), characteristic(nullptr), deviceConnected(false) {}
+
+  void begin() {
+    pinMode(SENSOR_PIN, INPUT);
+    pinMode(SDN_PIN, OUTPUT);
+    digitalWrite(SDN_PIN, HIGH);
+
+    Serial.begin(115200);
+
+    BLEDevice::init(DEVICE_NAME);
+
+    server = BLEDevice::createServer();
+    server->setCallbacks(new ServerCallbacks(this));
+
+    BLEService* service = server->createService(SERVICE_UUID);
+
+    characteristic = service->createCharacteristic(
+      CHARACTERISTIC_UUID,
+      BLECharacteristic::PROPERTY_NOTIFY
+    );
+    characteristic->addDescriptor(new BLE2902());
+
+    service->start();
+
+    BLEAdvertising* advertising = BLEDevice::getAdvertising();
+    advertising->addServiceUUID(SERVICE_UUID);
+    BLEDevice::startAdvertising();
+
+    Serial.println("ESP32 Ready! Advertising BLE...");
   }
-  void onDisconnect(BLEServer* pServer) {
+
+  void update() {
+    if (!deviceConnected) return;
+
+    int rawValue = analogRead(SENSOR_PIN);
+    uint8_t scaledValue = map(rawValue, 0, 4095, 0, 255);
+
+    characteristic->setValue(&scaledValue, 1);
+    characteristic->notify();
+
+    delay(SAMPLE_DELAY_MS);
+  }
+
+  void onConnect() { deviceConnected = true; }
+  void onDisconnect() {
     deviceConnected = false;
     delay(500);
-    pServer->getAdvertising()->start();
+    server->getAdvertising()->start();
   }
+
+private:
+  // Nested class to handle BLE callbacks
+  class ServerCallbacks : public BLEServerCallbacks {
+    ECGServer* parent;
+  public:
+    ServerCallbacks(ECGServer* p) : parent(p) {}
+    void onConnect(BLEServer* pServer) override { parent->onConnect(); }
+    void onDisconnect(BLEServer* pServer) override { parent->onDisconnect(); }
+  };
 };
 
+// ========================================
+// Instantiate ECGServer
+// ========================================
+ECGServer ecg;
+
 void setup() {
-  Serial.begin(115200);
-
-  pinMode(SENSOR_PIN, INPUT);
-  pinMode(SDN_PIN, OUTPUT);
-  digitalWrite(SDN_PIN, HIGH);
-
-  BLEDevice::init("ESP32_ECG_Custom");
-  pServer = BLEDevice::createServer();
-  pServer->setCallbacks(new MyServerCallbacks());
-
-  BLEService *pService = pServer->createService(SERVICE_UUID);
-
-  pCharacteristic = pService->createCharacteristic(
-    CHARACTERISTIC_UUID,
-    BLECharacteristic::PROPERTY_NOTIFY
-  );
-
-  pCharacteristic->addDescriptor(new BLE2902());
-  pService->start();
-
-  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-  pAdvertising->addServiceUUID(SERVICE_UUID);
-  BLEDevice::startAdvertising();
+  ecg.begin();
 }
 
 void loop() {
-  if (deviceConnected) {
-    int rawValue = analogRead(SENSOR_PIN);
-    uint8_t value = map(rawValue, 0, 4095, 0, 255);
-
-    pCharacteristic->setValue(&value, 1);
-    pCharacteristic->notify();
-
-    delay(40);
-  }
+  ecg.update();
 }
