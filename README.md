@@ -170,8 +170,7 @@ ECG_AC = ECG_RAW - baseline
 
 ## Academic Context
 
-This project was developed as part of the **Ubiquitous Computing** course  
-at **University of Siegen**.
+This project was developed as part of the **Ubiquitous Computing** course at **University of Siegen**.
 
 It demonstrates:
 - Embedded systems integration
