@@ -103,6 +103,7 @@ Visual scaling is applied **only for display**, raw data remains unchanged.
 A slow exponential moving average (EMA) is used:
 
 baseline = (1 - α) * baseline + α * ECG_RAW
+
 ECG_AC = ECG_RAW - baseline
 
 
