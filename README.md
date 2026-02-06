@@ -1,58 +1,180 @@
-# CardioFusion — Real-time ECG + PPG Heart Rate Comparison
-
-**CardioFusion** combines an AD8232 ECG front-end + ESP32 with the Bangle.js smartwatch PPG sensor to capture, display and compare heart-rate signals in real time.
-
-This repository contains:
-- ESP32 firmware that reads an AD8232 ECG signal, scales samples to 8-bit and transmits them over BLE.
-- Bangle.js app that receives ECG notifications, reads PPG BPM from the watch HRM, displays a real-time ECG waveform, and relays a 2-byte telemetry packet `[ECG, PPG]`.
-- Documentation, example wiring and troubleshooting notes.
+# ❤️ Heart Rate Detection  
+## ECG + PPG Comparison using ESP32, AD8232, and Bangle.js
 
 ---
 
-## Team
-- **Hamza Amjad** — Hardware integration, Bangle.js BLE receiver, ECG visualization.  
-- **Muhammad Waleed Amjad** — ESP32 firmware, BLE service design, ADC processing.  
-- **Osama Yousaf** — Bangle.js application: BLE scan/connect/subscribe workflow, real-time ECG plotter optimized for the Bangle display, PPG (HRM) listener, and implementation of the 2-byte relay service `[ECG, BPM]`.
+## Project Overview
+
+Wearable devices such as **Bangle.js** typically rely on **PPG (Photoplethysmography)** to estimate heart rate. While convenient, PPG is sensitive to motion artifacts and environmental factors.
+
+This project improves heart rate detection by integrating an **external ECG sensor (AD8232)** with **Bangle.js**, enabling:
+
+- Real-time raw ECG acquisition using ESP32  
+- Simultaneous PPG measurement from the Bangle.js internal HRM  
+- Live ECG visualization on the smartwatch  
+- Wireless streaming of ECG and PPG to a PC  
+- Comparative analysis of ECG and PPG signals  
+
+The system demonstrates that **ECG provides a more stable and reliable physiological signal** than PPG.
 
 ---
 
-## System overview
-1. AD8232 outputs analog ECG waveform (electrodes connected to patient).  
-2. ESP32 samples the ECG (12-bit ADC), scales to 8-bit and sends via BLE notifications at ~25 Hz.  
-3. Bangle.js connects to ESP32, receives ECG samples, and simultaneously monitors PPG BPM from the built-in HRM.  
-4. The watch displays a scrolling ECG waveform and the PPG BPM number; it also broadcasts a combined BLE telemetry characteristic with two bytes: `[ECG, BPM]`.
+## System Architecture
+
+AD8232 ECG Sensor
+|
+v
+ESP32 (ADC + BLE Peripheral)
+|
+| Raw ECG via BLE Notifications
+v
+Bangle.js (BLE Central)
+
+ -> Live ECG visualization
+  
+ ->  Internal PPG (HRM sensor)
+  
+ ->  UART relay (ECG + PPG)
+      |
+      v
+ ->  PC (Python + Bleak)
+  
+ ->  Live ECG (AC component)
+  
+ ->  Live PPG (BPM)
+  
+ ->  Signal comparison
+
 
 ---
 
-## Key parameters / identifiers
-- **BLE Service UUID:** `4fafc201-1fb5-459e-8fcc-c5c9c331914b`  
-- **BLE Characteristic UUID:** `beb5483e-36e1-4688-b7f5-ea07361b26a8`  
-- **ESP32 advertised device name:** `ESP32_ECG_Custom`  
-- **Telemetry packet (watch relay):** two bytes — `Byte0 = ECG sample (0–255)`, `Byte1 = PPG BPM (integer)`  
-- **Target sample rate (ESP32):** ~25 Hz (40 ms delay between packets)
+## Components Used
+
+### Hardware
+- Bangle.js v2
+- ESP32 DevKit
+- AD8232 ECG sensor
+- ECG electrodes and leads
+
+### Software
+- Bangle.js JavaScript API
+- ESP32 Arduino Framework
+- Python 3
+- Bleak (BLE client)
+- Matplotlib (live plotting)
 
 ---
 
-## Hardware
-- **ECG front-end:** AD8232 (LO+, LO−, SDN, OUTPUT)  
-- **MCU:** ESP32 (analog input pin used in example: `GPIO35`)  
-- **Power/shutdown pin used in example:** `GPIO33` (must be driven HIGH to power AD8232 in our firmware)
+## Implementation Details
 
-**Wiring notes**
-- Connect AD8232 `OUT` → ESP32 ADC pin (e.g. GPIO35).  
-- Drive AD8232 `SDN` pin HIGH (e.g. GPIO33) to power module (as in sample code).  
-- Ensure electrode placement is stable; reduce movement and check grounding to limit baseline wander.
+### ESP32 Firmware (`ecg_signals_sender.ino`)
+- Reads raw ECG values using 12-bit ADC (0–4095)
+- Sampling rate ≈ 125 Hz
+- Sends ECG samples via BLE notifications
+- Custom BLE service and characteristic
 
 ---
 
-## Firmware (ESP32)
-Example behavior implemented in `esp32_firmware.ino`:
-- Initializes BLE server and a NOTIFY characteristic (UUIDs above).
-- Reads analog ECG (`analogRead(SENSOR_PIN)`), maps 0–4095 → 0–255.
-- Sends each sample in a 1-byte notify packet (`pCharacteristic->setValue(&value, 1); pCharacteristic->notify();`).
-- Waits ~40 ms between sends to target ~25 Hz.
+### Bangle.js Application (`heart_rate_detection.app.js`)
+- Acts as BLE central device
+- Connects to ESP32 and receives raw ECG
+- Displays live ECG waveform on the watch
+- Reads PPG heart rate using internal HRM
+- Relays data to PC in the format:
+ECG_RAW,PPG_BPM
 
-**Pins / constants used in example**
-```c
-#define SENSOR_PIN 35   // ADC pin connected to AD8232 output
-#define SDN_PIN    33   // AD8232 SDN pin (HIGH to enable)
+
+Visual scaling is applied **only for display**, raw data remains unchanged.
+
+---
+
+### Python Desktop Application (`heart_rate_detection_live_plot.py`)
+- Connects to Bangle.js using Bleak
+- Subscribes to Nordic UART notifications
+- Parses incoming ECG and PPG values
+- Applies baseline removal to ECG
+- Displays live ECG (AC component) and PPG (BPM)
+
+---
+
+## Signal Processing
+
+### ECG Baseline Removal
+A slow exponential moving average (EMA) is used:
+
+baseline = (1 - α) * baseline + α * ECG_RAW
+ECG_AC = ECG_RAW - baseline
+
+
+- Removes DC offset and drift
+- Preserves ECG waveform variations
+- No additional filtering applied
+
+---
+
+## Project Contributors & Roles
+
+### Hamza Amjad  
+**Role: System Integration & Wearable Application Lead**
+
+- Bangle.js app development (ECG visualization + PPG UI)
+- BLE central logic (scan, connect, subscribe, retry)
+- Real-time ECG rendering and UI/UX design
+- End-to-end system integration (ESP32 ↔ Bangle.js ↔ PC)
+- Documentation, presentation, and experimental validation
+- ECG vs PPG comparative analysis
+
+---
+
+### Muhammad Waleed Amjad  
+**Role: Desktop Visualization & Signal Processing**
+
+- Python visualization using Matplotlib
+- BLE client integration using Bleak
+- Real-time buffering and plotting
+- ECG baseline removal implementation
+- Performance optimization and analysis support
+
+---
+
+### Osama Yousaf  
+**Role: Embedded Hardware & Firmware**
+
+- AD8232 ECG sensor setup and validation
+- ESP32 firmware development
+- BLE GATT service and characteristic design
+- ADC configuration and ECG sampling logic
+- Embedded system architecture support
+
+---
+
+## Results & Observations
+
+- ECG signal remains stable during motion
+- PPG is more sensitive to motion artifacts
+- ECG provides clearer cardiac timing information
+- Combined visualization enables cross-validation of heart rate
+
+---
+
+## Future Improvements
+
+- ECG R-peak detection and heart rate estimation
+- Motion artifact filtering
+- On-device heart rate computation
+- Long-term ECG and PPG data logging
+- Improved wearable UI controls
+
+---
+
+## Academic Context
+
+This project was developed as part of the **Ubiquitous Computing** course  
+at **University of Siegen**.
+
+It demonstrates:
+- Embedded systems integration
+- BLE communication
+- Wearable computing
+- Real-time physiological signal visualization
+- Comparative biosignal analysis
